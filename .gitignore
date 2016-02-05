@@ -1,0 +1,6 @@
+
+*.jar
+
+dist/README.TXT
+
+*.class
