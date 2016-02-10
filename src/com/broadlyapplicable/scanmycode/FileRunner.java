@@ -181,6 +181,11 @@ public class FileRunner {
 
     private void buildStartPathList() {
         startPathList = new ArrayList<StartPath>();
+        File extFile = new File("paths.txt");
+        if (!extFile.exists()) {
+            System.out.println("paths.txt missing. Please create a file with that name and comma separate any subdirectories you wish to be counted by ScanMyCode.");
+            return;
+        }
         try {
             String entireFileText = new Scanner(new File("paths.txt"))
                     .useDelimiter("\\n").next();
@@ -199,10 +204,16 @@ public class FileRunner {
 
     private void buildIncludeList() {
         includeSet = new HashSet<>();
-
+        
+        File extFile = new File("extensions.txt");
+        if (!extFile.exists()) {
+            System.out.println("extensions.txt missing. Please create a file with that name and comma separate any file extensions you wish to be counted by ScanMyCode.");
+            return;
+        }
+        
         try {
-            String entireFileText = new Scanner(new File("extensions.txt"))
-                    .useDelimiter("\\n").next();
+            
+            String entireFileText = new Scanner(new File("extensions.txt")).useDelimiter("\\n").next();
             if (entireFileText != null && !entireFileText.isEmpty()) {
                 String[] extData = entireFileText.split("\\,");
                 for (String ext : extData) {
