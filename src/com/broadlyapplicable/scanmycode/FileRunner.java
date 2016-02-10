@@ -7,11 +7,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Scanner;
+import java.util.Set;
 
 /**
  *
@@ -19,70 +19,62 @@ import java.util.Map;
  */
 public class FileRunner {
 
-    private final Map<String, Integer> linesMap;
-    private final Map<String, Integer> filesMap;
-    private final Map<String, Integer> methodsMap;
-    private static final String PUBLIC = "public";
-    private static final String PRIVATE = "private";
-    private static final String PROTECTED = "protected";
-    private static final String FUNCTION = "function";
-    private static final String FUNC = "func";
-
-    private String startPath;
-    private String reportName;
-    private List<String> excludeList;
-    
-    private int totalFiles;
-    private int totalLines;
-    private int totalMethods;
+    private List<StartPath> startPathList;
+    private Set<String> includeSet;
+    private final Set<String> excludedExtensions;
 
     public FileRunner() {
-        linesMap = new LinkedHashMap<>();
-        filesMap = new LinkedHashMap<>();
-        methodsMap = new LinkedHashMap<>();
-        buildExcludeList();
+        excludedExtensions = new HashSet<>();
+        buildIncludeList();
     }
 
-    public void run(String aStartPath, String aReportName) {
-        this.startPath = aStartPath;
-        this.reportName = aReportName;
-        processDirectory(new File(aStartPath));
+    public void run() {
+        buildStartPathList();
+        for (StartPath startPath : startPathList) {
+            //System.out.println("run:"+startPath.getPathName());
+            processDirectory(startPath, new File(startPath.getPathName()));
+        }
         generateOutput();
     }
 
-    private void processDirectory(File dir) {
+    private void processDirectory(StartPath startPath, File dir) {
+
         if (!dir.isDirectory()) {
-            processFile(dir);
+            processFile(startPath, dir);
             return;
         }
+        //System.out.println("ProcessDirectory:"+dir.getAbsolutePath());
         for (File file : dir.listFiles()) {
             if (file.isDirectory()) {
-                processDirectory(file);
+                processDirectory(startPath, file);
             } else {
-                processFile(file);
+                processFile(startPath, file);
             }
         }
     }
 
-    private void processFile(File file) {
+    private void processFile(StartPath startPath, File file) {
+        //System.out.println("ProcessFile:"+file.getAbsolutePath());
         String[] nameData = file.getName().split("\\.");
-        String extension = nameData[nameData.length - 1];
+        String extension = nameData[nameData.length - 1].toLowerCase();
         if (extension.length() > 15) {
             return;
         }
-        if (excludeList.contains(extension.toLowerCase())) {
+
+        if (!includeSet.contains(extension)) {
+            excludedExtensions.add(extension);
             return;
         }
         int cntr = 0;
-        if (filesMap.containsKey(extension)) {
-            cntr = filesMap.get(extension);
+        if (startPath.getFilesMap().containsKey(extension)) {
+            cntr = startPath.getFilesMap().get(extension);
         }
         cntr++;
-        filesMap.put(extension, cntr);
-        processLines(extension, file);
+        startPath.getFilesMap().put(extension, cntr);
+        processLines(startPath, extension, file);
     }
 
-    private void processLines(String extension, File file) {
+    private void processLines(StartPath startPath, String extension, File file) {
         int cntr = 0;
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String lne;
@@ -90,95 +82,81 @@ public class FileRunner {
                 lne = lne.trim();
                 if (lne != null && !lne.isEmpty()) {
                     cntr++;
-                    methodCheck(extension, lne);
                 }
             }
         } catch (IOException iox) {
             iox.printStackTrace();
             System.exit(-1);
         }
-        addLinesToMap(extension, cntr);
+        addLinesToMap(startPath, extension, cntr);
     }
 
-    private void methodCheck(String extension, String lne) {
-        if (lne.contains(PRIVATE) || lne.contains(PUBLIC) || lne.contains(PROTECTED) || lne.contains(FUNCTION) || lne.contains(FUNC)) {
-            int methods = 0;
-            if (lne.endsWith("{")) {
-                if (methodsMap.containsKey(extension)) {
-                    methods = methodsMap.get(extension);
-                }
-                methods++;
-                methodsMap.put(extension, methods);
-            }
+    private void addLinesToMap(StartPath startPath, String extension, int totalLines) {
+        if (startPath.getLinesMap().containsKey(extension)) {
+            totalLines = totalLines + startPath.getLinesMap().get(extension);
         }
-    }
-
-    private void addLinesToMap(String extension, int totalLines) {
-        if (linesMap.containsKey(extension)) {
-            totalLines = totalLines + linesMap.get(extension);
-        }
-        linesMap.put(extension, totalLines);
+        startPath.getLinesMap().put(extension, totalLines);
     }
 
     private void generateOutput() {
-        List<Extension> extensionList = processExtensionMaps();
-        generateCSV(extensionList);
-        generateTotals(extensionList);
-        generateHTML(extensionList);
-    }
-    
-    private void generateTotals(List<Extension> extList) {
-        for (Extension ext : extList) {
-            totalFiles += ext.getFiles();
-            totalLines += ext.getLines();
-            totalMethods += ext.getMethods();
-        }
-    }
-
-    private List<Extension> processExtensionMaps() {
-        List<Extension> extensionList = new ArrayList<Extension>();
-        for (String ext : filesMap.keySet()) {
-            int files = filesMap.get(ext);
-            int lines = linesMap.get(ext);
-            int methods = 0;
-            if (methodsMap.containsKey(ext)) {
-                methods = methodsMap.get(ext);
-            }
-            Extension extension = new Extension(ext, files, lines, methods);
-            extensionList.add(extension);
-        }
-        Collections.sort(extensionList);
-        return extensionList;
-    }
-
-    private void generateCSV(List<Extension> extensionList) {
-        StringBuilder csv = new StringBuilder();
-        csv.append("Extension,Files,Lines,Methods\n");
-        for (Extension ext : extensionList) {
-            String lne = ext.getName() + "," + ext.getFiles() + "," + ext.getLines() + "," + ext.getMethods();
-            csv.append(lne).append("\n");
-        }
-        writeFile(csv, reportName + ".csv");
-    }
-
-    private void generateHTML(List<Extension> extensionList) {
+        System.out.println("Skipped Extensions: " + excludedExtensions.toString());
         SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mma");
         String css = "<style type=\"text/css\">body {font-family:arial;} table {border:.1em solid cadetblue;} th {background-color:#eeeeee; padding:15px; border:.1em solid #eeeeee;} td {border:.1em solid #eeeeee; padding:15px;}</style>";
         StringBuilder html = new StringBuilder();
         html.append("<html><head>").append(css).append("</head><body>");
-        html.append("<h2>").append(startPath).append("</h2>");
+        html.append("<h1>Code Report</h1>");
         String generated = "Generated on: " + sdf.format(new Date());
         html.append(generated);
-        html.append("<br/><br/><table>");
-        html.append("<tr><th>Extension</th><th>Files</th><th>Lines</th><th>Methods</th></tr>");
-        for (Extension ext : extensionList) {
-            html.append("<tr><td>").append(ext.getName()).append("</td><td align=\"right\">").append(ext.getFiles()).append("</td><td align=\"right\">").append(ext.getLines()).append("</td><td align=\"right\">").append(ext.getMethods()).append("</td></tr>");
+
+        for (StartPath startPath : startPathList) {
+            List<Extension> extList = startPath.getExtensionList();
+            updateHTMLTableWithExtensionData(html, startPath.getPathName(), startPath.getExtensionList());
         }
-        html.append("<tr><td colspan=\"4\" style=\"background-color:#eeeeee;\"></td></tr>");
-        html.append("<tr><td></td><td><b>Files</b></td><td><b>Lines</b></td><td><b>Methods</b></td></tr>");
-        html.append("<tr><td><b>Totals</b></td><td align=\"right\">").append(totalFiles).append("</td><td align=\"right\">").append(totalLines).append("</td><td align=\"right\">").append(totalMethods).append("</td><tr>");
-        html.append("</table></body></html>");
-        writeFile(html, reportName + ".html");
+
+        List<Extension> totalExtensions = getTotalExtensions();
+        updateHTMLTableWithExtensionData(html, "All Paths", totalExtensions);
+        
+        html.append("</body></html>");
+        writeFile(html, "CodeReport" + ".html");
+    }
+    
+    private void updateHTMLTableWithExtensionData(StringBuilder html, String path, List<Extension> extentionList) {
+        int totalLines = 0;
+            int totalFiles = 0;
+            html.append("<h2>").append(path).append("</h2>");
+            html.append("<table>");
+            html.append("<tr><th>Extension</th><th>Files</th><th>Lines</th></tr>");
+            for (Extension ext : extentionList) {
+                totalLines += ext.getLines();
+                totalFiles += ext.getFiles();
+                html.append("<tr><td>").append(ext.getName()).append("</td><td align=\"right\">").append(ext.getFiles()).append("</td><td align=\"right\">").append(ext.getLines()).append("</td></tr>");
+            }
+            html.append("<tr><td colspan=\"4\" style=\"background-color:#eeeeee;\"></td></tr>");
+            html.append("<tr><td></td><td><b>Files</b></td><td><b>Lines</b></td></tr>");
+            html.append("<tr><td><b>Totals</b></td><td align=\"right\">").append(totalFiles).append("</td><td align=\"right\">").append(totalLines).append("</td><tr>");
+            html.append("</table><br/><br/>");
+    }
+
+    private List<Extension> getTotalExtensions() {
+        List<Extension> extensionList = new ArrayList<Extension>();
+        for (StartPath startPath : startPathList) {
+            for (Extension ext : startPath.getExtensionList()) {
+                boolean extensionFound = false;
+                for (Extension ext2 : extensionList) {
+                    if (ext.getName().equals(ext2.getName())) {
+                        ext2.addFiles(ext.getFiles());
+                        ext2.addLines(ext.getLines());
+                        extensionFound = true;
+                        break;
+                    }
+                }
+                if (!extensionFound) {
+                    Extension e = new Extension(ext.getName(), ext.getFiles(), ext.getLines());
+                    extensionList.add(e);
+                }
+            }
+        }
+        return extensionList;
     }
 
     private void writeFile(StringBuilder contents, String fileName) {
@@ -193,37 +171,43 @@ public class FileRunner {
     }
 
     public static void main(String[] args) {
-        if (args.length < 2) {
-            System.out.println("Pass Starting Directory and Report Name Please");
-            System.exit(-1);
-        }
-        String startPath = args[0];
-        String reportName = args[1];
         FileRunner fr = new FileRunner();
-        fr.run(startPath, reportName);
+        fr.run();
     }
 
-    private void buildExcludeList() {
-        excludeList = new ArrayList<>();
-        excludeList.add("asdf");
-        excludeList.add("class");
-        excludeList.add("config");
-        excludeList.add("csv");
-        excludeList.add("docx");
-        excludeList.add("ds_store");
-        excludeList.add("gif");
-        excludeList.add("gitignore");
-        excludeList.add("head");
-        excludeList.add("index");
-        excludeList.add("jar");
-        excludeList.add("jpg");
-        excludeList.add("master");
-        excludeList.add("mf");
-        excludeList.add("png");
-        excludeList.add("rtf");
-        excludeList.add("txt");
-        excludeList.add("war");
-        excludeList.add("xslt");
-        excludeList.add("zip");
+    private void buildStartPathList() {
+        startPathList = new ArrayList<StartPath>();
+        try {
+            String entireFileText = new Scanner(new File("paths.txt"))
+                    .useDelimiter("\\n").next();
+            if (entireFileText != null && !entireFileText.isEmpty()) {
+                String[] dta = entireFileText.split("\\,");
+                for (String path : dta) {
+                    StartPath startPath = new StartPath(path);
+                    startPathList.add(startPath);
+                    System.out.println("pn: \"" + startPath.getPathName() + "\"");
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private void buildIncludeList() {
+        includeSet = new HashSet<>();
+
+        try {
+            String entireFileText = new Scanner(new File("extensions.txt"))
+                    .useDelimiter("\\A").next();
+            if (entireFileText != null && !entireFileText.isEmpty()) {
+                String[] extData = entireFileText.split("\\,");
+                for (String ext : extData) {
+                    includeSet.add(ext);
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
     }
 }

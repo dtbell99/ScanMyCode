@@ -4,26 +4,36 @@ package com.broadlyapplicable.scanmycode;
  *
  * @author dbell
  */
-public class Extension implements Comparable{
+public class Extension implements Comparable {
 
     @Override
     public int compareTo(Object o) {
         Extension e = (Extension) o;
-        if (lines == e.getLines()) { return 0; }
+        if (lines == e.getLines()) {
+            return 0;
+        }
         return (e.getLines() > lines) ? 1 : -1;
     }
-    
+
     private final String name;
-    private final int files;
-    private final int lines;
-    private final int methods;
-    
-    public Extension(String n, int f, int l, int m) {
+    private int files;
+    private int lines;
+
+    public Extension(String n, int f, int l) {
         this.name = n;
         this.files = f;
         this.lines = l;
-        this.methods = m;
     }
+    
+    public void addFiles(int n) {
+        files+=n;
+    }
+    
+    public void addLines(int n) {
+        lines+=n;
+    }
+    
+    
 
     public String getName() {
         return name;
@@ -35,10 +45,6 @@ public class Extension implements Comparable{
 
     public int getLines() {
         return lines;
-    }
-
-    public int getMethods() {
-        return methods;
     }
 
 }
