@@ -99,42 +99,46 @@ public class FileRunner {
     }
 
     private void generateOutput() {
-        System.out.println("Skipped Extensions: " + excludedExtensions.toString());
+
         SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mma");
-        String css = "<style type=\"text/css\">body {font-family:arial;} table {border:.1em solid cadetblue;} th {background-color:#eeeeee; padding:15px; border:.1em solid #eeeeee;} td {border:.1em solid #eeeeee; padding:15px;}</style>";
+        String css = "<style type=\"text/css\">a {color:cadetblue;} body {padding:10px; font-family:arial;} table {border:.1em solid cadetblue;} th {background-color:#eeeeee; padding:15px; border:.1em solid #eeeeee;} td {border:.1em solid #eeeeee; padding:15px;}</style>";
         StringBuilder html = new StringBuilder();
+        html.append("<script type=\"text/javascript\">");
+        html.append("function showhide(id) {");
+        html.append("document.getElementById(id).style.display = '';");
+        html.append("}");
+        html.append("</script>");
         html.append("<html><head>").append(css).append("</head><body>");
         html.append("<h1>Code Report</h1>");
         String generated = "Generated on: " + sdf.format(new Date());
         html.append(generated);
-
         for (StartPath startPath : startPathList) {
-            List<Extension> extList = startPath.getExtensionList();
             updateHTMLTableWithExtensionData(html, startPath.getPathName(), startPath.getExtensionList());
         }
 
         List<Extension> totalExtensions = getTotalExtensions();
-        updateHTMLTableWithExtensionData(html, "All Paths", totalExtensions);
-        
+        updateHTMLTableWithExtensionData(html, "Total Projects: " + startPathList.size(), totalExtensions);
+
+        html.append("<br/><br/><hr/><br/>Excluded Extensions: ").append(excludedExtensions.toString());
         html.append("</body></html>");
         writeFile(html, "CodeReport" + ".html");
     }
-    
+
     private void updateHTMLTableWithExtensionData(StringBuilder html, String path, List<Extension> extentionList) {
         int totalLines = 0;
-            int totalFiles = 0;
-            html.append("<h2>").append(path).append("</h2>");
-            html.append("<table>");
-            html.append("<tr><th>Extension</th><th>Files</th><th>Lines</th></tr>");
-            for (Extension ext : extentionList) {
-                totalLines += ext.getLines();
-                totalFiles += ext.getFiles();
-                html.append("<tr><td>").append(ext.getName()).append("</td><td align=\"right\">").append(ext.getFiles()).append("</td><td align=\"right\">").append(ext.getLines()).append("</td></tr>");
-            }
-            html.append("<tr><td colspan=\"4\" style=\"background-color:#eeeeee;\"></td></tr>");
-            html.append("<tr><td></td><td><b>Files</b></td><td><b>Lines</b></td></tr>");
-            html.append("<tr><td><b>Totals</b></td><td align=\"right\">").append(totalFiles).append("</td><td align=\"right\">").append(totalLines).append("</td><tr>");
-            html.append("</table><br/><br/>");
+        int totalFiles = 0;
+        html.append("<h3 id=\"t_").append(path).append("\"><a onclick=\"showhide('").append(path).append("')\" href=\"#t_").append(path).append("\">").append(path).append("</a></h3>");
+        html.append("<table style=\"display:none;\" id=\"").append(path).append("\">");
+        html.append("<tr><th>Extension</th><th>Files</th><th>Lines</th></tr>");
+        for (Extension ext : extentionList) {
+            totalLines += ext.getLines();
+            totalFiles += ext.getFiles();
+            html.append("<tr><td>").append(ext.getName()).append("</td><td align=\"right\">").append(ext.getFiles()).append("</td><td align=\"right\">").append(ext.getLines()).append("</td></tr>");
+        }
+        html.append("<tr><td colspan=\"4\" style=\"background-color:#eeeeee;\"></td></tr>");
+        html.append("<tr><td></td><td><b>Files</b></td><td><b>Lines</b></td></tr>");
+        html.append("<tr><td><b>Totals</b></td><td align=\"right\">").append(totalFiles).append("</td><td align=\"right\">").append(totalLines).append("</td><tr>");
+        html.append("</table>");
     }
 
     private List<Extension> getTotalExtensions() {
