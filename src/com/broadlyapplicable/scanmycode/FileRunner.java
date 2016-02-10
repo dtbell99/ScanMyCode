@@ -202,7 +202,7 @@ public class FileRunner {
 
         try {
             String entireFileText = new Scanner(new File("extensions.txt"))
-                    .useDelimiter("\\A").next();
+                    .useDelimiter("\\n").next();
             if (entireFileText != null && !entireFileText.isEmpty()) {
                 String[] extData = entireFileText.split("\\,");
                 for (String ext : extData) {
