@@ -33,8 +33,6 @@ public class Extension implements Comparable {
         lines+=n;
     }
     
-    
-
     public String getName() {
         return name;
     }

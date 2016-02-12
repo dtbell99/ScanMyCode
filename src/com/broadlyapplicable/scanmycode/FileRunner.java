@@ -109,7 +109,7 @@ public class FileRunner {
         html.append("}");
         html.append("</script>");
         html.append("<html><head>").append(css).append("</head><body>");
-        html.append("<h1>Code Report</h1>");
+        html.append("<h2>Code Report</h2>");
         String generated = "Generated on: " + sdf.format(new Date());
         html.append(generated);
         for (StartPath startPath : startPathList) {
